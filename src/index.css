@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 전역 Reset / 기본 스타일  */
+
+html {
+	box-sizing: border-box;
+	height: 100%;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+
+body {
+	@apply bg-white text-gray-900 antialiased;
+	margin: 0;
+	height: 100%;
+}
+
+#root {
+	height: 100%;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	@apply font-bold tracking-tight;
+	margin: 0;
+}
+
+/* 링크 스타일 */
+a {
+	@apply text-blue-600 hover:underline;
+}
