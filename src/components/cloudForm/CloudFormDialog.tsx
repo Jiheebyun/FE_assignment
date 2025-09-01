@@ -513,14 +513,14 @@ const CloudFormDialog = ({
 			{/* 하단 버튼 고정 */}
 			<div className="mt-6 flex justify-end gap-2">
 				<button
-					className="px-4 py-2 rounded border"
+					className="px-4 py-2 rounded border hover:bg-[#d3d3d3] active:bg-[#9c9c9c]"
 					onClick={onClose}
 					disabled={submitting}
 				>
 					Cancel
 				</button>
 				<button
-					className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+					className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50 bg-[#0774e1] text-white hover:bg-[#2790f3] active:bg-[#004d9a]"
 					onClick={onConfirm}
 					disabled={submitting || loading}
 				>

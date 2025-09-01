@@ -17,7 +17,7 @@ export default function MainLayout() {
 				<div className="border-b pb-2 mb-6" />
 				<PageHeader />
 
-				{/* 각 페이지가 여기로 렌더링 */}
+				{/* 각 페이지 렌더링 */}
 				<Outlet />
 			</section>
 		</main>
