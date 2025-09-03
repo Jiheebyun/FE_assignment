@@ -1,12 +1,11 @@
-
-
 const Properties = () => {
-    
-    return (
-        <>
-            <div><h2>Properties</h2></div>
-        </>
-    )
-}
+	return (
+		<>
+			<div>
+				<h2>Properties</h2>
+			</div>
+		</>
+	);
+};
 
-export default Properties
+export default Properties;

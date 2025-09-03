@@ -262,7 +262,7 @@ const CloudFormDialog = ({
 	const [loading, setLoading] = useState<boolean>(mode !== "create"); // edit/delete면 로딩 시작
 	const [submitting, setSubmitting] = useState(false);
 
-	// ✨ 수정 모드: 서버에서 불러와 인풋 초기화 (0~500ms sleep 요구사항)
+	// 수정 모드: 서버에서 불러와 인풋 초기화 (0~500ms sleep 요구사항)
 	useEffect(() => {
 		let mounted = true;
 		(async () => {
