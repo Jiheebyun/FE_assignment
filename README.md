@@ -119,6 +119,7 @@ paths:
           description: Not Found
 
 ```
+</details>
 
 ### 프론트에서 스펙 사용
 
@@ -202,8 +203,6 @@ createUser.mutate({ name:'Alice' }, {
 
 ```
 
-
-</details>
 
 
 
