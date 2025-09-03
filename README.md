@@ -118,12 +118,10 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "404":
           description: Not Found
-
 ```
+</details>
 
-<details>
 
-- 
 
 
 # [선택] i18n 적용 방안 제시
