@@ -52,6 +52,7 @@ components:
 ### Path 추가 
 <details>
 <summary>/users 목록·상세·생성</summary>
+
 ```
 paths:
   /users:
@@ -118,7 +119,9 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "404":
           description: Not Found
+          
 ```
+
 </details>
 
 
