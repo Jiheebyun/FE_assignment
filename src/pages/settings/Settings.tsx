@@ -1,10 +1,8 @@
 const Settings = () => {
 	return (
-		<>
-			<div>
-				<h2>Properties</h2>
-			</div>
-		</>
+		<div className="p-4">
+			<p className="text-sm text-gray-600">Settings page</p>
+		</div>
 	);
 };
 

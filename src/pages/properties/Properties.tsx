@@ -2,7 +2,7 @@ const Properties = () => {
 	return (
 		<>
 			<div>
-				<h2>Properties</h2>
+				<p className="text-sm text-gray-600">Properties page</p>
 			</div>
 		</>
 	);

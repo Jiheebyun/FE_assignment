@@ -1,10 +1,8 @@
 const Security = () => {
 	return (
-		<>
-			<div>
-				<h2>Security</h2>
-			</div>
-		</>
+		<div className="p-4">
+			<p className="text-sm text-gray-600">Security page</p>
+		</div>
 	);
 };
 

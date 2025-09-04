@@ -1,27 +1,47 @@
-// components/cloud/CloudDialog.tsx
 import { useEffect, useMemo, useState } from "react";
 import Modal from "../modal/Modal";
+import TextField from "./fields/TextField";
+import SelectField from "./fields/SelectField";
+import MultiSelectField from "./fields/MultiSelectField";
+import SwitchField from "./fields/SwitchField";
+import TagsField from "./fields/TagsField";
+import type { Provider } from "../../types/types";
+import { AWSRegionList, CLOUD_GROUPS } from "../../types/types";
 
-const AWSRegionList = [
-	"global",
-	"ap-northeast-1",
-	"ap-northeast-2",
-	"ap-northeast-3",
-	"ap-south-1",
-	"ap-southeast-1",
-	"ap-southeast-2",
-	"ca-central-1",
-	"eu-central-1",
-	"eu-north-1",
-	"eu-west-1",
-	"eu-west-2",
-	"eu-west-3",
-	"sa-east-1",
-	"us-east-1",
-	"us-east-2",
-	"us-west-1",
-	"us-west-2",
-];
+/**
+ * CloudFormDialog
+ *
+ * 확장 가능한 클라우드 계정 생성/수정/삭제 다이얼로그 컴포넌트.
+ * 섹션/필드 스키마를 기반으로 입력 UI를 동적으로 렌더링하며,
+ * 필드 타입별 컴포넌트(Text/Password, Select, MultiSelect, Switch, Tags)를 사용합니다.
+ *
+ * props:
+ *  - mode: "create" | "edit" | "delete"              ← 다이얼로그 동작 모드
+ *  - cloudId?: string                                   ← edit/delete 시 대상 id (모킹 fetch 사용)
+ *  - initialValues?: Partial<Cloud>                     ← create 시 프리필 필요 시 사용
+ *  - onClose: () => void                                ← 다이얼로그 닫기 콜백
+ *  - onSubmit: (payload: any) => Promise<void> | void   ← 확인 시 호출되는 콜백(서버 저장 책임은 상위)
+ *
+ * 특징/동작:
+ *  - 스키마(providerSchemas.AWS.sections)의 정의에 따라 필드를 렌더링합니다.
+ *  - field.showIf(values)가 false를 반환하면 해당 필드는 숨겨집니다.
+ *  - field.mapTo가 있는 경우, 입력값은 해당 경로로 저장됩니다.
+ *  - regionList 변경 시 항상 'global'이 포함되도록 강제합니다.
+ *  - provider 셀렉트는 AWS만 활성화(AZURE/GCP disabled) 상태로 제공됩니다.
+ *  - 상수는 types.ts의 AWSRegionList, CLOUD_GROUPS를 사용합니다.
+ *
+ * 사용 예시:
+ *
+ *  <CloudFormDialog
+ *    mode="create"
+ *    onClose={() => setOpen(false)}
+ *    onSubmit={(values) => api.save(values)}
+ *  />
+ *
+ * 확장 방법:
+ *  - 새 프로바이더 추가 시 providerSchemas에 스키마를 추가하고, provider 셀렉트 활성화 및 스키마 매핑 로직을 연결합니다.
+ *  - 새 필드 타입이 필요하면 fields 디렉토리에 컴포넌트를 추가하고 타입 분기만 확장하세요.
+ */
 
 export const providerSchemas = {
 	AWS: {
@@ -50,7 +70,12 @@ export const providerSchemas = {
 				title: "General",
 				fields: [
 					{ key: "name", label: "Account Name", type: "text", required: true },
-					{ key: "cloudGroupName", label: "Cloud Groups", type: "tags" },
+					{
+						key: "cloudGroupName",
+						label: "Cloud Groups",
+						type: "multiselect",
+						options: CLOUD_GROUPS as unknown as string[],
+					},
 					{
 						key: "regionList",
 						label: "Regions",
@@ -197,6 +222,11 @@ export const providerSchemas = {
 	},
 };
 
+const normalizeRegionList = (arr: unknown): string[] => {
+	const list = Array.isArray(arr) ? arr : [];
+	return list.length === 0 ? [] : Array.from(new Set(["global", ...list]));
+};
+
 // 모킹 유틸: 0~500ms sleep
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -257,7 +287,16 @@ const CloudFormDialog = ({
 	const schema = providerSchemas.AWS; // 과제 조건: AWS만
 	const baseDefaults = useMemo(() => schema.defaults, [schema]);
 
-	const [values, setValues] = useState<any>(initialValues ?? baseDefaults);
+	const initialMerged = useMemo(
+		() => ({ ...baseDefaults, ...(initialValues || {}) }),
+		[baseDefaults, initialValues]
+	);
+	if (initialMerged.regionList) {
+		(initialMerged as any).regionList = normalizeRegionList(
+			(initialMerged as any).regionList
+		);
+	}
+	const [values, setValues] = useState<any>(initialMerged);
 	const [errors, setErrors] = useState<any>({});
 	const [loading, setLoading] = useState<boolean>(mode !== "create"); // edit/delete면 로딩 시작
 	const [submitting, setSubmitting] = useState(false);
@@ -271,7 +310,14 @@ const CloudFormDialog = ({
 					setLoading(true);
 					const serverData = await fetchCloudById(cloudId!);
 					if (!mounted) return;
-					setValues({ ...baseDefaults, ...serverData });
+					const normalizedRegionList = normalizeRegionList(
+						(serverData as any).regionList
+					);
+					setValues({
+						...baseDefaults,
+						...serverData,
+						regionList: normalizedRegionList,
+					});
 				} finally {
 					if (mounted) setLoading(false);
 				}
@@ -288,9 +334,21 @@ const CloudFormDialog = ({
 	}, [mode, cloudId, baseDefaults]);
 
 	const handleChange = (key: string, val: any, mapTo?: string) => {
-		const next = structuredClone(values);
-		setIn(next, mapTo || key, val);
-		setValues(next);
+		const targetPath = mapTo || key;
+		setValues(prev => {
+			const draft = structuredClone(prev);
+			let nextVal = val;
+			if (targetPath === "regionList") {
+				const arr = Array.isArray(val) ? val : [];
+				const withoutGlobal = arr.filter((r: string) => r !== "global");
+				nextVal =
+					withoutGlobal.length === 0
+						? []
+						: Array.from(new Set(["global", ...withoutGlobal]));
+			}
+			setIn(draft, targetPath, nextVal);
+			return draft;
+		});
 	};
 
 	const validate = () => {
@@ -362,6 +420,24 @@ const CloudFormDialog = ({
 				</div>
 			) : (
 				<div className="space-y-6">
+					{/* AWS enabled 그리고 나머지는 disabled */}
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<SelectField
+							label="Provider"
+							required
+							value={values.provider}
+							options={["AWS", "AZURE", "GCP"]}
+							disabledOptions={["AZURE", "GCP"]}
+							error={errors["provider"]}
+							onChange={v => {
+								const next = structuredClone(values);
+								next.provider = v as Provider;
+								setValues(next);
+							}}
+							inputClass={`w-full border rounded px-2 py-2 ${errors["provider"] ? "border-red-400" : ""}`}
+						/>
+					</div>
+
 					{schema.sections.map(sec => (
 						<section key={sec.title}>
 							<h3 className="text-sm font-semibold text-gray-600 mb-2">
@@ -379,122 +455,66 @@ const CloudFormDialog = ({
 
 									if (f.type === "text" || f.type === "password") {
 										return (
-											<div key={f.key}>
-												<label className="block text-sm mb-1">
-													{f.label}
-													{f.required && (
-														<span className="text-red-500 ml-1">*</span>
-													)}
-												</label>
-												<input
-													type={f.type}
-													className={inputClass}
-													value={val}
-													onChange={e =>
-														handleChange(f.key, e.target.value, f.mapTo)
-													}
-												/>
-												{err && (
-													<p className="text-xs text-red-600 mt-1">{err}</p>
-												)}
-											</div>
+											<TextField
+												key={f.key}
+												label={f.label}
+												required={f.required}
+												type={f.type}
+												value={val}
+												error={err}
+												onChange={v => handleChange(f.key, v, f.mapTo)}
+												inputClass={inputClass}
+											/>
 										);
 									}
 
 									if (f.type === "select") {
 										return (
-											<div key={f.key}>
-												<label className="block text-sm mb-1">
-													{f.label}
-													{f.required && (
-														<span className="text-red-500 ml-1">*</span>
-													)}
-												</label>
-												<select
-													className={inputClass}
-													value={val}
-													onChange={e =>
-														handleChange(f.key, e.target.value, f.mapTo)
-													}
-												>
-													<option value="">Select...</option>
-													{f.options?.map((opt: string) => (
-														<option key={opt} value={opt}>
-															{opt}
-														</option>
-													))}
-												</select>
-												{err && (
-													<p className="text-xs text-red-600 mt-1">{err}</p>
-												)}
-											</div>
+											<SelectField
+												key={f.key}
+												label={f.label}
+												required={f.required}
+												value={val}
+												options={f.options || []}
+												error={err}
+												onChange={v => handleChange(f.key, v, f.mapTo)}
+												inputClass={inputClass}
+											/>
 										);
 									}
 
 									if (f.type === "multiselect") {
-										const current: string[] = Array.isArray(raw) ? raw : [];
-										const toggle = (opt: string) => {
-											const next = current.includes(opt)
-												? current.filter(v => v !== opt)
-												: [...current, opt];
-											handleChange(f.key, next, f.mapTo);
-										};
 										return (
-											<div key={f.key} className="md:col-span-2">
-												<label className="block text-sm mb-1">
-													{f.label}
-													{f.required && (
-														<span className="text-red-500 ml-1">*</span>
-													)}
-												</label>
-												<div className="flex flex-wrap gap-2">
-													{f.options?.map((opt: string) => (
-														<button
-															key={opt}
-															type="button"
-															onClick={() => toggle(opt)}
-															className={`px-2 py-1 rounded border text-xs ${current.includes(opt) ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
-														>
-															{opt}
-														</button>
-													))}
-												</div>
-												{errors[f.key] && (
-													<p className="text-xs text-red-600 mt-1">
-														{errors[f.key]}
-													</p>
-												)}
-											</div>
+											<MultiSelectField
+												key={f.key}
+												label={f.label}
+												required={f.required}
+												value={Array.isArray(raw) ? raw : []}
+												options={f.options || []}
+												error={errors[f.key]}
+												onChange={next => handleChange(f.key, next, f.mapTo)}
+											/>
 										);
 									}
 
 									if (f.type === "switch") {
-										const checked = !!raw;
 										return (
-											<div key={f.key} className="flex items-center gap-3">
-												<label className="text-sm">{f.label}</label>
-												<button
-													type="button"
-													onClick={() => handleChange(f.key, !checked, f.mapTo)}
-													className={`w-10 h-6 rounded-full ${checked ? "bg-green-500" : "bg-gray-300"} relative`}
-												>
-													<span
-														className={`absolute top-0.5 ${checked ? "left-5" : "left-0.5"} w-5 h-5 bg-white rounded-full transition-all`}
-													/>
-												</button>
-											</div>
+											<SwitchField
+												key={f.key}
+												label={f.label}
+												checked={!!raw}
+												onChange={v => handleChange(f.key, v, f.mapTo)}
+											/>
 										);
 									}
 
 									if (f.type === "tags") {
-										// 간단 태그 입력 (Enter 추가)
-										const current: string[] = Array.isArray(raw) ? raw : [];
 										return (
 											<TagsField
 												key={f.key}
 												label={f.label}
 												required={f.required}
-												value={current}
+												value={Array.isArray(raw) ? raw : []}
 												error={errors[f.key]}
 												onChange={next => handleChange(f.key, next, f.mapTo)}
 												inputClass={inputClass}
@@ -536,75 +556,5 @@ const CloudFormDialog = ({
 		</Modal>
 	);
 };
-
-// 보조 컴포넌트: 태그 입력
-function TagsField({
-	label,
-	required,
-	value,
-	error,
-	onChange,
-	inputClass,
-}: any) {
-	const [text, setText] = useState("");
-	const add = () => {
-		const t = text.trim();
-		if (!t) return;
-		onChange([...(value || []), t]);
-		setText("");
-	};
-	const remove = (idx: number) => {
-		const next = value.slice();
-		next.splice(idx, 1);
-		onChange(next);
-	};
-	return (
-		<div className="md:col-span-2">
-			<label className="block text-sm mb-1">
-				{label}
-				{required && <span className="text-red-500 ml-1">*</span>}
-			</label>
-			<div className="flex gap-2">
-				<input
-					className={inputClass}
-					value={text}
-					onChange={e => setText(e.target.value)}
-					onKeyDown={e => {
-						if (e.key === "Enter") {
-							e.preventDefault();
-							add();
-						}
-					}}
-					placeholder="Type and press Enter"
-				/>
-				<button
-					type="button"
-					onClick={add}
-					className="px-3 rounded bg-gray-900 text-white"
-				>
-					+
-				</button>
-			</div>
-			<div className="mt-2 flex flex-wrap gap-2">
-				{value?.map((t: string, i: number) => (
-					<span
-						key={`${t}-${i}`}
-						className="px-2 py-0.5 rounded bg-gray-100 text-xs border"
-					>
-						{t}
-						<button
-							type="button"
-							className="ml-2 text-gray-500"
-							onClick={() => remove(i)}
-						>
-							×
-						</button>
-					</span>
-				))}
-			</div>
-			{error && <p className="text-xs text-red-600 mt-1">{error}</p>}
-		</div>
-	);
-}
 
 export default CloudFormDialog;

@@ -1,6 +1,6 @@
 type Provider = "AWS" | "AZURE" | "GCP"; // AWS만 활성화
 
-const AWSRegionList = [
+export const AWSRegionList = [
 	"global",
 	"ap-northeast-1",
 	"ap-northeast-2",
@@ -19,6 +19,15 @@ const AWSRegionList = [
 	"us-east-2",
 	"us-west-1",
 	"us-west-2",
+] as const;
+
+export const CLOUD_GROUPS = [
+	"default-group",
+	"platform",
+	"security",
+	"data",
+	"dev",
+	"prod",
 ] as const;
 
 type AWSCredentialType = "ACCESS_KEY" | "ASSUME_ROLE" | "ROLES_ANYWHERE"; // ACCESS_KEY만 활성화

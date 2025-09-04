@@ -1,8 +1,19 @@
+import { useLocation } from "react-router-dom";
+import { TITLE_MAP } from "../../routes/routes.tsx";
+
+function toTitleFromPath(pathname: string): string {
+	if (TITLE_MAP[pathname]) return TITLE_MAP[pathname];
+	const seg = pathname.split("/").filter(Boolean)[0] || "";
+	if (!seg) return "Cloud Management";
+	return seg.charAt(0).toUpperCase() + seg.slice(1);
+}
+
 const PageHeader = () => {
+	const { pathname } = useLocation();
+	const title = toTitleFromPath(pathname);
 	return (
 		<header className="">
-			{/* 페이지  */}
-			<h2 className="text-2xl font-semibold">Cloud Management</h2>
+			<h2 className="text-2xl font-semibold">{title}</h2>
 		</header>
 	);
 };
